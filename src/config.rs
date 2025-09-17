@@ -14,6 +14,8 @@ impl Config {
     pub fn from_env() -> Self {
         dotenv().ok();
 
+        tracing_subscriber::fmt::init();
+
         let database = env::var("DATABASE").expect("DATABASE must be set in .env");
 
         let host = env::var("HOST")

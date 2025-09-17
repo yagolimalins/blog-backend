@@ -1,6 +1,10 @@
 use crate::{config::Config, db::init_db_pool, utils::banner};
 use axum::{Router, http::Method, routing::get};
-use tower_http::cors::{Any, CorsLayer};
+use tokio::net::TcpListener;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 
 pub mod config;
 pub mod db;
@@ -23,10 +27,11 @@ async fn main() {
         .route("/", get(|| async { axum::http::StatusCode::OK }))
         .nest("/users", routes::users::routes())
         .with_state(pool)
+        .layer(TraceLayer::new_for_http())
         .layer(cors);
 
     let address = format!("{}:{}", config.host, config.port);
-    let listener = tokio::net::TcpListener::bind(&address).await.unwrap();
+    let listener = TcpListener::bind(&address).await.unwrap();
 
     banner(&address);
 
