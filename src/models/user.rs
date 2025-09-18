@@ -11,3 +11,17 @@ pub struct User {
     pub password: String,
     pub created_at: Option<NaiveDateTime>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct CreateUser {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(FromRow, Serialize)]
+pub struct UserResponse {
+    pub id: Uuid,
+    pub username: String,
+    pub email: String,
+}
