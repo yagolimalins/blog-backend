@@ -25,6 +25,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(|| async { axum::http::StatusCode::OK }))
+        .nest("/auth", routes::auth::routes())
         .nest("/users", routes::users::routes())
         .with_state(pool)
         .layer(TraceLayer::new_for_http())
