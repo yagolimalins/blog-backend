@@ -19,9 +19,8 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(Debug, FromRow, Serialize)]
 pub struct UserResponse {
-    pub id: Uuid,
     pub username: String,
     pub email: String,
 }

@@ -27,6 +27,7 @@ async fn main() {
         .route("/", get(|| async { axum::http::StatusCode::OK }))
         .nest("/auth", routes::auth::routes())
         .nest("/users", routes::users::routes())
+        .nest("/blogs", routes::blogs::routes())
         .with_state(pool)
         .layer(TraceLayer::new_for_http())
         .layer(cors);

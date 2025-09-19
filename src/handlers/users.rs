@@ -8,16 +8,15 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use sqlx::{Error, PgPool, query, query_as};
-use uuid::Uuid;
+use sqlx::{Error, PgPool, Postgres, query, query_as};
 
 use crate::models::{
-    blog::Blog,
+    blog::BlogResponse,
     user::{CreateUser, User, UserResponse},
 };
 
 pub async fn get_users(State(pool): State<PgPool>) -> impl IntoResponse {
-    match query_as::<_, UserResponse>("SELECT * FROM users")
+    match query_as::<Postgres, UserResponse>("SELECT * FROM users")
         .fetch_all(&pool)
         .await
     {
@@ -27,14 +26,17 @@ pub async fn get_users(State(pool): State<PgPool>) -> impl IntoResponse {
     }
 }
 
-pub async fn get_user_by_id(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> impl IntoResponse {
-    match query_as::<_, UserResponse>("SELECT * FROM users WHERE id = $1")
-        .bind(id)
-        .fetch_one(&pool)
+pub async fn get_user_by_username(
+    State(pool): State<PgPool>,
+    Path(username): Path<String>,
+) -> impl IntoResponse {
+    match query_as::<Postgres, UserResponse>("SELECT * FROM users WHERE username = $1")
+        .bind(username)
+        .fetch_optional(&pool)
         .await
     {
-        Ok(user) => (StatusCode::OK, Json(user)).into_response(),
-        Err(Error::RowNotFound) => StatusCode::NOT_FOUND.into_response(),
+        Ok(Some(user)) => (StatusCode::OK, Json(user)).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
@@ -43,7 +45,7 @@ pub async fn create_user(
     State(pool): State<PgPool>,
     Json(payload): Json<CreateUser>,
 ) -> impl IntoResponse {
-    match query_as::<_, User>("SELECT * FROM users WHERE username = $1 OR email = $2")
+    match query_as::<Postgres, User>("SELECT * FROM users WHERE username = $1 OR email = $2")
         .bind(&payload.username)
         .bind(&payload.email)
         .fetch_optional(&pool)
@@ -62,7 +64,7 @@ pub async fn create_user(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    let result = query_as::<_, UserResponse>(
+    let result = query_as::<Postgres, UserResponse>(
         r#"
         INSERT INTO users (username, email, password)
         VALUES ($1, $2, $3)
@@ -77,14 +79,16 @@ pub async fn create_user(
 
     match result {
         Ok(user) => (StatusCode::CREATED, Json(user)).into_response(),
-        Err(Error::RowNotFound) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
 
-pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> impl IntoResponse {
-    match query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-        .bind(id)
+pub async fn delete_user_by_username(
+    State(pool): State<PgPool>,
+    Path(username): Path<String>,
+) -> impl IntoResponse {
+    match query_as::<Postgres, User>("SELECT * FROM users WHERE username = $1")
+        .bind(&username)
         .fetch_optional(&pool)
         .await
     {
@@ -93,8 +97,8 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> im
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    match query("DELETE FROM users WHERE id = $1")
-        .bind(id)
+    match query("DELETE FROM users WHERE username = $1")
+        .bind(&username)
         .execute(&pool)
         .await
     {
@@ -103,13 +107,26 @@ pub async fn delete_user(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> im
     }
 }
 
-pub async fn get_user_blogs(State(pool): State<PgPool>, Path(id): Path<Uuid>) -> impl IntoResponse {
-    match query_as::<_, Blog>("SELECT * FROM blogs WHERE user_id = $1")
-        .bind(id)
-        .fetch_all(&pool)
-        .await
+pub async fn get_user_blogs_by_username(
+    State(pool): State<PgPool>,
+    Path(username): Path<String>,
+) -> impl IntoResponse {
+    match query_as::<Postgres, BlogResponse>(
+        r#"
+        SELECT
+       	    *
+    	FROM
+    	    blogs b
+        JOIN users u on
+    	    b.user_id = u.id
+    	WHERE
+    	    u.username = $1
+        "#,
+    )
+    .bind(&username)
+    .fetch_all(&pool)
+    .await
     {
-        Ok(blogs) if blogs.is_empty() => StatusCode::NOT_FOUND.into_response(),
         Ok(blogs) => (StatusCode::OK, Json(blogs)).into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }

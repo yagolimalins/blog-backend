@@ -12,3 +12,11 @@ pub struct Blog {
     pub description: Option<String>,
     pub created_at: Option<NaiveDateTime>,
 }
+
+#[derive(Debug, FromRow, Serialize, Deserialize)]
+pub struct BlogResponse {
+    pub username: String,
+    pub title: String,
+    pub slug: String,
+    pub description: Option<String>,
+}
